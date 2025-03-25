@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
+import OpenAI from 'openai'
+import axios from 'axios'
+import { GoogleGenAI } from '@google/genai'
 
 interface ModalProps {
   onClose: () => void;
@@ -7,21 +10,45 @@ interface ModalProps {
 }
 const Modal: React.FC<ModalProps> = ({ onClose, isOpen }) => {
 
+  // const Client = new OpenAI({
+  //   baseURL:'https://openrouter.ai/api/v1',
+  //   apiKey:'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',
+  //   dangerouslyAllowBrowser:true
+  // });
+
+  const ai = new GoogleGenAI({apiKey: 'AIzaSyCWUA2wWKKYnTykEn4PQrSCzZupvwYq1zM'});
+
   const [input, setInput] = useState('');
   const [isGenerate, setIsGenerate] = useState(false);
   const [chat, setChat] =  useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string>('')
+  const [Loading,setLoading] = useState(false)
 
   // Function to handle the generation of the response based on the input
-  const handleGenerate=()=>{
-    if(input.length>0){
-      setIsGenerate(true); 
-      setChat([...chat,input,"Thank you for the opportunity! If you have any more questions or if there's anything else I can help you with, feel free to ask."]); // Adds the input and reply to the chat array
-      setInput('') // Resets the input field after the chat has successfully generated
-    }else{
-      setErrorMessage('Please Enter Your Prompt'); //If the user tries to gererate message without typing in the input field 
+  const handleGenerate = async () => {
+    if (input.trim().length > 0) {
+      setChat((prev) => [...prev, input]);
+      setLoading(true);
+      setInput('');
+
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.0-flash-001',
+          contents: [{ text: `Act as a software developer and answer: ${input}` }],
+        });
+        setIsGenerate(true); 
+        setChat((prev) => [...prev, response.text]);
+      } catch (err) {
+        setChat((prev) => [...prev, 'Something went wrong']);
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setErrorMessage('Please enter your prompt');
     }
-  }
+  };
+
 
   // Function to insert the generated message into LinkedIn's message box
   const onInsertClick =()=>{
@@ -65,14 +92,23 @@ const Modal: React.FC<ModalProps> = ({ onClose, isOpen }) => {
             <div className="bg-gray-100 px-4 pb-2 pt-3">
               <div className="items-start">
                 <div className="mt-3">
+                  <div className='max-h-64 overflow-y-auto space-y-5 mb-5'>
                   {/* Display generated chat messages */}
-                  {isGenerate && chat.map((messages,index)=>(
-                    <div key={index} className='space-y-5 mb-5'>
+                  {chat.map((messages,index)=>(
+                    <div key={index} className='space-y-5'>
                       <div className={`flex ${index%2===0?"justify-end":"justify-start" }`}>
                         <div className={`max-w-xs sm:max-w-lg text-start ${index%2===0?"bg-gray-300" : "bg-blue-100"} p-3 rounded-lg shadow-md overflow-hidden text-xl`}>{messages}</div>
                       </div>
                     </div>
                   ))}
+                  {Loading && (
+                    <div className="flex items-center space-x-2 bg-blue-100 p-3 rounded-lg shadow-md max-w-xs sm:max-w-lg">
+                      <div className="animate-bounce h-4 w-4 bg-gray-400 rounded-full"></div>
+                      <div className="animate-bounce h-4 w-4 bg-gray-400 rounded-full"></div>
+                      <div className="animate-bounce h-4 w-4 bg-gray-400 rounded-full"></div>
+                    </div>
+                  )}
+                  </div>
                   <input
                     className='border border-gray-300 p-2 w-full rounded bg-white text-xl focus:outline-none focus:ring-0 focus:border-teal !shadow-none hover:!shadow-none'
                     placeholder='your prompt'
@@ -105,6 +141,7 @@ const Modal: React.FC<ModalProps> = ({ onClose, isOpen }) => {
                 <>
                   <button
                     type="button"
+                    onClick={() => handleGenerate()}
                     className="inline-flex items-center w-full justify-center rounded-md bg-blue-500 px-3 py-2 font-semibold text-white shadow-sm hover:bg-blue-400 sm:ml-3 sm:w-auto text-xl mb-1"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" fill="#FFFFFF" height="18px" width="15px" version="1.1" id="Capa_1" viewBox="0 0 489.711 489.711" xmlSpace="preserve">
